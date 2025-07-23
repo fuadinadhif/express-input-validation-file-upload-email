@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "esnext", // Menentukan versi ECMAScript output. "esnext" berarti output mendukung fitur terbaru JS
+    "module": "nodenext", // Menentukan sistem modul. "nodenext" mendukung ES Modules (import/export) dan Node.js style
+    "moduleResolution": "nodenext", // Cara TypeScript mencari file saat impor. "nodenext" cocok untuk project dengan ES Modules
+
+    "rootDir": "./", // Folder utama dari source code sebelum di-compile
+    "outDir": "./dist", // Folder hasil compile TypeScript ke JavaScript
+
+    "baseUrl": ".", // Basis path untuk module alias (digunakan dengan paths)
+    "paths": {
+      "@/*": ["src/*"] // Alias supaya bisa import dengan "@/folder" daripada "../../folder"
+    },
+
+    "esModuleInterop": true, // Agar bisa mengimpor modul CommonJS (seperti 'import express from "express"') dengan lancar
+    "forceConsistentCasingInFileNames": true, // Mencegah perbedaan huruf besar-kecil dalam penamaan file (misal `User.ts` vs `user.ts`)
+    "strict": true, // Mengaktifkan semua aturan ketat TypeScript untuk meningkatkan keamanan dan validitas kode
+    "skipLibCheck": true // Melewati pengecekan type declaration di dalam node_modules agar compile lebih cepat
+  },
+
+  "include": ["src", "prisma"], // Folder yang akan di-compile oleh TypeScript
+  "exclude": ["dist", "node_modules"] // mengabaikan folder "dist", "node_modules" dari TypeScript Compiler
+}
