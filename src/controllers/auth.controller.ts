@@ -9,6 +9,8 @@ import { resend } from "@/configs/resend.config.js";
 import { cloudinary } from "@/configs/cloudinary.config.js";
 
 import { registerSchema, loginSchema } from "@/validations/auth.validation.js";
+import { AppError } from "@/errors/app.error.js";
+import { string } from "zod";
 
 export async function register(
   request: Request,
@@ -29,7 +31,7 @@ export async function register(
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
 
-    if (existingUser) throw new Error("User already registered");
+    if (existingUser) throw new AppError("User already registered", 409);
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -64,7 +66,14 @@ export async function register(
     });
 
     if (error) {
-      return next(error);
+      const resendError = error as unknown as {
+        error: string;
+        statusCode: number;
+      };
+      throw new AppError(
+        resendError.error || "Email sending failed",
+        resendError.statusCode || 500
+      );
     }
 
     response.status(201).json({ message: "User created", user });
@@ -87,7 +96,7 @@ export async function login(
       !existingUser ||
       !(await bcrypt.compare(password, existingUser.password))
     ) {
-      throw new Error("Invalid email or password");
+      throw new AppError("Invalid email or password", 400);
     }
 
     const payload = {

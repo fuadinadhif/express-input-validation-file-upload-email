@@ -2,15 +2,16 @@ import { faker } from "@faker-js/faker";
 import bcrypt from "bcrypt";
 
 import { prisma } from "@/configs/prisma.config.js";
+import logger from "@/utils/logger.js";
 
 async function seed() {
   try {
-    console.info(`Seed started...`);
+    logger.info(`Seed started...`);
 
     /* -------------------------- Delete previous data -------------------------- */
-    console.info(`\nDelete all previous data...`);
+    logger.info(`Delete all previous data...`);
     await prisma.user.deleteMany();
-    console.info(`All previous data has been deleted\n`);
+    logger.info(`All previous data has been deleted`);
 
     /* ----------------------------- Create new data ---------------------------- */
     for (let i = 0; i < 10; i++) {
@@ -20,16 +21,16 @@ async function seed() {
       const password = await bcrypt.hash("newpass", 10);
       const profilePic = faker.image.avatar();
 
-      console.info(`Creating ${firstName} data...`);
+      logger.info(`Creating ${firstName} data...`);
 
       await prisma.user.create({
         data: { firstName, lastName, email, password, profilePic },
       });
     }
 
-    console.info(`\nSeeding data finished successfully`);
+    logger.info(`Seeding data finished successfully`);
   } catch (error) {
-    console.error(`Seed failed: ${error}`);
+    logger.error(`Seed failed: ${error}`);
   } finally {
     await prisma.$disconnect();
   }
