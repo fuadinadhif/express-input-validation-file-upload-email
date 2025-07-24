@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from "express";
-import { faker } from "@faker-js/faker";
 import Handlebars from "handlebars";
 import fs from "node:fs/promises";
 import bcrypt from "bcrypt";
@@ -10,7 +9,6 @@ import { resend } from "@/configs/resend.config.js";
 import { cloudinary } from "@/configs/cloudinary.config.js";
 
 import { registerSchema, loginSchema } from "@/validations/auth.validation.js";
-import { AppError } from "@/errors/app.error.js";
 
 export async function register(
   request: Request,
@@ -31,7 +29,7 @@ export async function register(
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
 
-    if (existingUser) throw new AppError("User already registered", 409);
+    if (existingUser) throw new Error("User already registered");
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -89,7 +87,7 @@ export async function login(
       !existingUser ||
       !(await bcrypt.compare(password, existingUser.password))
     ) {
-      throw new AppError("Invalid email or password", 400);
+      throw new Error("Invalid email or password");
     }
 
     const payload = {
