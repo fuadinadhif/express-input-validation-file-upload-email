@@ -1,7 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import { faker } from "@faker-js/faker";
+import Handlebars from "handlebars";
+import fs from "node:fs/promises";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 import { prisma } from "@/configs/prisma.config.js";
+import { resend } from "@/configs/resend.config.js";
+import { cloudinary } from "@/configs/cloudinary.config.js";
+
+import { registerSchema, loginSchema } from "@/validations/auth.validation.js";
+import { AppError } from "@/errors/app.error.js";
 
 export async function register(
   request: Request,
@@ -9,17 +18,56 @@ export async function register(
   next: NextFunction
 ) {
   try {
-    const { firstName, lastName, email, password, profilePic } = request.body;
+    const file = request.file;
+    const { firstName, lastName, email, password } = registerSchema.parse(
+      request.body
+    );
+
+    if (!file) {
+      return response
+        .status(400)
+        .json({ message: "Profile picture not found" });
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+
+    if (existingUser) throw new AppError("User already registered", 409);
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const uploadResult = await cloudinary.uploader.upload(file.path);
+    await fs.unlink(file.path);
 
     const user = await prisma.user.create({
       data: {
         firstName,
         lastName,
         email,
-        password,
-        profilePic: profilePic || faker.image.avatar(),
+        password: hashedPassword,
+        profilePic: uploadResult.secure_url,
       },
     });
+
+    const templatePath = "src/templates/emails/welcome.hbs";
+    const templateSource = await fs.readFile(templatePath, "utf8");
+    const template = Handlebars.compile(templateSource);
+    const emailData = {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+    };
+    const emailHtml = template(emailData);
+
+    const { data, error } = await resend.emails.send({
+      from: "Purwadhika <onboarding@resend.dev>",
+      to: [user.email],
+      subject: "Welcome to Purwadhika",
+      html: emailHtml,
+    });
+
+    if (error) {
+      return next(error);
+    }
 
     response.status(201).json({ message: "User created", user });
   } catch (error) {
@@ -33,17 +81,29 @@ export async function login(
   next: NextFunction
 ) {
   try {
-    const { email, password } = request.body;
+    const { email, password } = loginSchema.parse(request.body);
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
 
-    if (!existingUser || existingUser?.password !== password) {
-      return response
-        .status(400)
-        .json({ message: "Invalid email or password" });
+    if (
+      !existingUser ||
+      !(await bcrypt.compare(password, existingUser.password))
+    ) {
+      throw new AppError("Invalid email or password", 400);
     }
 
-    response.status(200).json({ message: "Login success" });
+    const payload = {
+      id: existingUser.id,
+      email: existingUser.email,
+      firstName: existingUser.firstName,
+      lastName: existingUser.lastName,
+      profilePic: existingUser.profilePic,
+    };
+    const accessToken = jwt.sign(payload, process.env.JWT_SECRET as string, {
+      expiresIn: "1h",
+    });
+
+    response.status(200).json({ message: "Login success", accessToken });
   } catch (error) {
     next(error);
   }

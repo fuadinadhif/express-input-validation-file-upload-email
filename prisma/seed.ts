@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import bcrypt from "bcrypt";
 
 import { prisma } from "@/configs/prisma.config.js";
 
@@ -16,7 +17,7 @@ async function seed() {
       const firstName = faker.person.firstName();
       const lastName = faker.person.lastName();
       const email = faker.internet.email({ firstName, lastName });
-      const password = "newpass";
+      const password = await bcrypt.hash("newpass", 10);
       const profilePic = faker.image.avatar();
 
       console.info(`Creating ${firstName} data...`);
